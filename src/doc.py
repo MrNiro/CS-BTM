@@ -33,7 +33,8 @@ class Doc:
             return
         for i in range(len(self.ws) - 1):
             for j in range(i + 1, min(i + win, len(self.ws))):
-                bs.append(Biterm(self.ws[i], self.ws[j]))
+                b_id = len(bs)
+                bs.append(Biterm(b_id, self.ws[i], self.ws[j]))
 
 # if __name__ == "__main__":
 #     s = '2 3 4 5'

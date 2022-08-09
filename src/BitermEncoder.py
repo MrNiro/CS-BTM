@@ -7,9 +7,9 @@ device = torch.device('cpu')
 class BitermBert:
     def __init__(self, model_name='bert-base-multilingual-cased'):
         print("Initializing Biterm Encoder...")
-        self.tokenizer = BertTokenizer.from_pretrained(model_name) # .to(device)
+        self.tokenizer = BertTokenizer.from_pretrained(model_name)  # .to(device)
         self.bert_model = BertModel.from_pretrained(model_name).to(device)
-        print("Init Done!")
+        print("Biterm Encoder Init Done!")
 
     def encode(self, text):
         token = self.tokenizer.encode(text)
@@ -43,22 +43,21 @@ class BitermBert:
         return float(similarity)
 
 
-if __name__ == '__main__':
-    # model_name = 'bert-base-chinese'
-    model_name = 'bert-base-multilingual-cased'
-    # model_name = 'bert-base-uncased'
+def simple_test():
+    test_model_name = 'bert-base-multilingual-cased'
+    # test_model_name = 'bert-base-chinese'
+    # test_model_name = 'bert-base-uncased'
 
     # model_path = './model/multi_cased_L-12_H-768_A-12/'
 
-    tokenizer = BertTokenizer.from_pretrained(model_name)
-    bert_model = BertModel.from_pretrained(model_name)      # 这地方好坑
+    tokenizer = BertTokenizer.from_pretrained(test_model_name)
+    bert_model = BertModel.from_pretrained(test_model_name)      # 这地方好坑,用model path的话模型与源码不一定兼容
 
     t1 = tokenizer.encode('希望')
     t2 = tokenizer.encode('想要')
     t3 = tokenizer.encode('程序员')
     t4 = tokenizer.encode('工程师')
 
-    # input_1 = tf.convert_to_tensor(t1)
     input_1 = torch.tensor(t1).unsqueeze(0)
     input_2 = torch.tensor(t2).unsqueeze(0)
     input_3 = torch.tensor(t3).unsqueeze(0)
@@ -78,3 +77,7 @@ if __name__ == '__main__':
     print(dis_1_2)
     print(dis_1_3)
     print(dis_3_4)
+
+
+if __name__ == '__main__':
+    simple_test()

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import indexDocs
+import torch
+
 from BitermEncoder import BitermBert
 from doc import Doc
 from sampler import *
@@ -10,6 +12,8 @@ import math
 
 class Model:
     def __init__(self, k, alpha, beta, n_iter, save_step, has_b=False):
+        # TODO: self.bs not init if not call train before infer
+
         self.K = k                      # number of topics
         self.vocabulary_size = None     # vocabulary size
 
@@ -29,6 +33,7 @@ class Model:
         self.indexToVector = None
         self.biterm_encoder = None
         self.sim_thresh = 0.9
+        self.Sim = dict()
 
         # If true, the topic 0 is set to a background topic that equals to the empirical word distribution.
         # It can be used to filter out common words
@@ -76,6 +81,10 @@ class Model:
         print("Start Encoding texts...")
         self.indexToVector = list(map(lambda x: self.biterm_encoder.encode(x), self.indexToWord))
         print("Encoding Done!")
+
+        for bi in self.bs:
+            self.Sim[bi.b_id] = [-1 for _ in range(len(self.bs))]
+        print("Biterms similarity init Done!")
 
         topic_dict = {}
         topic_dict_index = {}
@@ -206,9 +215,9 @@ class Model:
         self.assign_biterm_topic(bi, k)  # 更新论文中的Nz,N_wiz,N_wjz.
 
     def reset_biterm_topic(self, bi):
-        k = bi.get_z()
-        w1 = bi.get_wi()
-        w2 = bi.get_wj()
+        k = bi.z
+        w1 = bi.wi
+        w2 = bi.wj
 
         self.nb_z[k] -= 1
         self.nw_z[k][w1] -= 1
@@ -219,16 +228,16 @@ class Model:
     def assign_biterm_topic(self, bi, k):
         # bi是每一个词对，K是主题的个数。
         bi.set_z(k)
-        w1 = bi.get_wi()  # 词对中的一个词
-        w2 = bi.get_wj()  # 词对中的第二个词
+        w1 = bi.wi  # 词对中的一个词
+        w2 = bi.wj  # 词对中的第二个词
         self.nb_z[k] += 1  # self.nb_z: 表示的是在那么多的词对中，每个主题出现的次数。
         self.nw_z[k][w1] += 1  # self.nwz[1][1] 表示的是在主题1中，1号单词出现的次数。
         self.nw_z[k][w2] += 1  # self.nwz[2][3] 表示的是在出题2中，2号单词出现的次数。
 
     def compute_pz_b(self, bi):
         pz_b = np.zeros(self.K)
-        w1 = bi.get_wi()  # 取到词对中的第一个词编号。
-        w2 = bi.get_wj()  # 取到词对中的第二个词编号。
+        w1 = bi.wi  # 取到词对中的第一个词编号。
+        w2 = bi.wj  # 取到词对中的第二个词编号。
 
         for k in range(self.K):
             if self.pz is None and self.pw_z is None:
@@ -251,17 +260,32 @@ class Model:
     def compute_pb_d(self, biterms):
         bi_num = len(biterms)
         print(bi_num)
-        Sim = [[0 for _ in range(bi_num)] for _ in range(bi_num)]
+        # Sim = [[0 for _ in range(bi_num)] for _ in range(bi_num)]
+        # Sim = [[0 for _ in range(len(self.bs))] for _ in range(bi_num)]
+
         lambda_b = [0 for _ in range(bi_num)]
         for i, bi in enumerate(biterms):
-            for j, bi_2 in enumerate(biterms):
-                if i == j:
+            # 按照论文，此处应该只和当前doc中的biterms比较
+            # 但个人认为应该与全局biterms进行比较才更有意义？
+            # 但确实，对全局进行计算的时间开销太高了
+
+            # for j, bi_2 in enumerate(biterms):
+            for j, bi_2 in enumerate(self.bs):
+                # # 4 lines below are for local biterms
+                # if i == j:
+                #     continue
+                # if j < i:
+                #     similarity = Sim[j][i]
+
+                if bi.equalTo(bi_2):
                     continue
-                if j < i:
-                    similarity = Sim[j][i]
+
+                if self.Sim[bi.b_id][j] >= 0:
+                    similarity = self.Sim[bi.b_id][j]
                 else:
                     similarity = self.cal_biterm_sim(bi, bi_2)
-                    Sim[i][j] = similarity
+                    self.Sim[bi.b_id][j] = similarity
+                    # Sim[i][j] = similarity
 
                 # print(similarity)
                 if similarity >= self.sim_thresh:
@@ -273,18 +297,21 @@ class Model:
 
     def cal_biterm_sim(self, bi_1, bi_2):
         # 此处仅提取到编号
-        # w1_1 = self.indexToWord[bi_1.get_wi()]
-        # w1_2 = self.indexToWord[bi_1.get_wj()]
-        # w2_1 = self.indexToWord[bi_2.get_wi()]
-        # w2_2 = self.indexToWord[bi_2.get_wj()]
-
+        # w1_1 = self.indexToWord[bi_1.wi]
+        # w1_2 = self.indexToWord[bi_1.wj]
+        # w2_1 = self.indexToWord[bi_2.wi]
+        # w2_2 = self.indexToWord[bi_2.wj]
         # similarity = self.biterm_encoder.cal_biterm_similarity((w1_1, w1_2), (w2_1, w2_2))
 
-        v1_1 = self.indexToVector[bi_1.get_wi()]
-        v1_2 = self.indexToVector[bi_1.get_wj()]
-        v2_1 = self.indexToVector[bi_2.get_wi()]
-        v2_2 = self.indexToVector[bi_2.get_wj()]
-        similarity = self.biterm_encoder.cal_vector_similarity((v1_1, v1_2), (v2_1, v2_2))
+        v1 = self.indexToVector[bi_1.wi]
+        v2 = self.indexToVector[bi_1.wj]
+        v3 = self.indexToVector[bi_2.wi]
+        v4 = self.indexToVector[bi_2.wj]
+        similarity = float(torch.cosine_similarity(v1, v3) +
+                           torch.cosine_similarity(v1, v4) +
+                           torch.cosine_similarity(v2, v3) +
+                           torch.cosine_similarity(v2, v4)) / 4
+
         return similarity
 
     def cal_coherence(self, topic_word_num, topic_dict):
