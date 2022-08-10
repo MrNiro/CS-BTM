@@ -34,7 +34,7 @@ if __name__ == "__main__":
     K = 3
     alpha = 0.5
     beta = 0.5
-    n_iter = 50
+    n_iter = 100
     save_step = 1000
 
     output_dir = "../output/"
