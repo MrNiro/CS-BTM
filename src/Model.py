@@ -12,8 +12,6 @@ import math
 
 class Model:
     def __init__(self, k, alpha, beta, n_iter, save_step, has_b=False):
-        # TODO: self.bs not init if not call train before infer
-
         self.K = k                      # number of topics
         self.vocabulary_size = None     # vocabulary size
 
@@ -73,6 +71,8 @@ class Model:
         index_docs = self.load_docs(doc_path, vocabulary_path, if_load_voc=True)
         if self.pz is None and self.pw_z is None:
             self.load_model(model_dir)
+        if len(self.bs) == 0:
+            self.model_init(index_docs)
 
         self.indexToWord = sorted(index_docs.wordToIndex.keys(), key=lambda x: index_docs.wordToIndex[x])
         # topic_words_with_frequency = sorted(list(zip(indexToWord, self.pw_b)), key=lambda x: x[1])
