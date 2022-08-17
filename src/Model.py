@@ -31,7 +31,7 @@ class Model:
         self.indexToVector = None
         self.biterm_encoder = None
         self.sim_thresh = 0.9
-        self.Sim = dict()
+        # self.Sim = dict()
 
         # If true, the topic 0 is set to a background topic that equals to the empirical word distribution.
         # It can be used to filter out common words
@@ -82,13 +82,13 @@ class Model:
         self.indexToVector = list(map(lambda x: self.biterm_encoder.encode(x), self.indexToWord))
         print("Encoding Done!")
 
-        for bi in self.bs:
-            self.Sim[bi.b_id] = [-1 for _ in range(len(self.bs))]
-        print("Biterms similarity init Done!")
+        # for bi in self.bs:
+        #     self.Sim[bi.b_id] = [-1 for _ in range(len(self.bs))]
+        # print("Biterms similarity init Done!")
 
         topic_dict = {}
         topic_dict_index = {}
-        for each in index_docs.docIndex:
+        for doc_idx, each in enumerate(index_docs.docIndex):
             pz_d = np.zeros(self.K)  # the probability proportion of the Doc in each Topic
 
             d = Doc(each)
@@ -119,7 +119,7 @@ class Model:
                 topic_dict_index[k] = [each]
 
             print(pb_d)
-            print("Topic: %d\t %s\n" % (k, sentence))
+            print("Doc: %d Topic: %d\t %s\n" % (doc_idx, k, sentence))
 
         self.generate_topic_words()
         # for t in range(5, 11):
@@ -260,32 +260,31 @@ class Model:
     def compute_pb_d(self, biterms):
         bi_num = len(biterms)
         print(bi_num)
-        # Sim = [[0 for _ in range(bi_num)] for _ in range(bi_num)]
+        Sim = [[0.0 for _ in range(bi_num)] for _ in range(bi_num)]
         # Sim = [[0 for _ in range(len(self.bs))] for _ in range(bi_num)]
 
         lambda_b = [0 for _ in range(bi_num)]
         for i, bi in enumerate(biterms):
             # 按照论文，此处应该只和当前doc中的biterms比较
-            # 但个人认为应该与全局biterms进行比较才更有意义？
-            # 但确实，对全局进行计算的时间开销太高了
 
-            # for j, bi_2 in enumerate(biterms):
-            for j, bi_2 in enumerate(self.bs):
-                # # 4 lines below are for local biterms
-                # if i == j:
-                #     continue
-                # if j < i:
-                #     similarity = Sim[j][i]
-
-                if bi.equalTo(bi_2):
+            for j, bi_2 in enumerate(biterms):
+                # lines below are for local biterms
+                if i == j:
                     continue
-
-                if self.Sim[bi.b_id][j] >= 0:
-                    similarity = self.Sim[bi.b_id][j]
+                if j < i:
+                    similarity = Sim[j][i]
                 else:
                     similarity = self.cal_biterm_sim(bi, bi_2)
-                    self.Sim[bi.b_id][j] = similarity
-                    # Sim[i][j] = similarity
+                    Sim[i][j] = similarity
+
+                # # lines below are for global biterms
+                # if bi.equalTo(bi_2):
+                #     continue
+                # if self.Sim[bi.b_id][j] >= 0:
+                #     similarity = self.Sim[bi.b_id][j]
+                # else:
+                #     similarity = self.cal_biterm_sim(bi, bi_2)
+                #     self.Sim[bi.b_id][j] = similarity
 
                 # print(similarity)
                 if similarity >= self.sim_thresh:
