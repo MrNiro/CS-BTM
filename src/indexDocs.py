@@ -43,7 +43,7 @@ class IndexDocs:
                     if w in self.wordToIndex:
                         wids.append(self.wordToIndex[w])
                     else:
-                        wids.append(self.wordToIndex["unknown"])
+                        wids.append(self.wordToIndex["----unknown----"])
                 else:
                     if w not in self.wordToIndex:
                         self.wordToIndex[w] = len(self.wordToIndex)
@@ -55,7 +55,7 @@ class IndexDocs:
             # print(' '.join(map(str, wids)), file=wf)
 
         if not self.if_load_voc:
-            self.wordToIndex["unknown"] = len(self.wordToIndex)
+            self.wordToIndex["----unknown----"] = len(self.wordToIndex)
         # print('write file: ' + str(res_pt))
 
     def load_voc(self, vocal_path):

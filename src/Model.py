@@ -122,6 +122,10 @@ class Model:
             print("Doc: %d Topic: %d\t %s\n" % (doc_idx, k, sentence))
 
         self.generate_topic_words()
+        print("\n\n======================== Topic Words ========================")
+        for i in range(self.K):
+            topic_words = list(map(lambda x: self.indexToWord[x], self.topic_words[i]))
+            print("topic", i, topic_words[:5])
         # for t in range(5, 11):
         #     self.cal_coherence(t, topic_dict_index)
 
