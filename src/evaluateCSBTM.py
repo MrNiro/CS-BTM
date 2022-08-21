@@ -54,5 +54,4 @@ if __name__ == "__main__":
     topic_words = list(map(lambda x: x[my_model.indexToWord[x]], my_model.topic_words))
     print(topic_words)
 
-    for T in [5, 10, 20]:
-        print("Coherence Score(T=%d) = %f" % (T, cal_coherence(topic_dict, my_model.topic_words, top_n=T)))
+    cal_coherence(topic_dict, my_model.topic_words, my_model.indexToWord)
