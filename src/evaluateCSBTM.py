@@ -32,15 +32,14 @@ def display_biterm(bs, vocal):
 
 if __name__ == "__main__":
     K = 3
-    alpha = 0.5
+    alpha = 50 / K
     beta = 0.01
-    n_iter = 30
+    n_iter = 20
     save_step = 1000
 
     output_dir = "../output/"
-    input_dir = "../data/"
-    doc_pt = input_dir + "test_2.dat"                     # input documents
-    model_dir = "../output/"                   # dictionary to save model
+    doc_pt = "../../data/test_2.dat"                   # input documents
+    model_dir = "../output/model/"                            # dictionary to save model
     vocabulary_path = output_dir + "vocabulary.txt"     # generated vocabulary
 
     print("\n\n================ Topic Learning =============")
@@ -50,8 +49,5 @@ if __name__ == "__main__":
     print("\n\n================ Topic Inference =============")
     # my_model = Model(K, alpha, beta, n_iter, save_step)
     topic_dict = my_model.infer(doc_pt, model_dir, vocabulary_path)
-
-    topic_words = list(map(lambda x: x[my_model.indexToWord[x]], my_model.topic_words))
-    print(topic_words)
 
     cal_coherence(topic_dict, my_model.topic_words, my_model.indexToWord)

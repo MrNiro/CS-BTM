@@ -1,11 +1,11 @@
 from transformers import BertModel, BertTokenizer
 import torch
 
-device = torch.device('cpu')
+device = torch.device('cuda')
 
 
 class BitermBert:
-    def __init__(self, model_name='bert-base-multilingual-cased'):
+    def __init__(self, model_name="sentence-transformers/all-MiniLM-L6-v2"):
         print("Initializing Biterm Encoder...")
         self.tokenizer = BertTokenizer.from_pretrained(model_name)  # .to(device)
         self.bert_model = BertModel.from_pretrained(model_name).to(device)
@@ -44,7 +44,8 @@ class BitermBert:
 
 
 def simple_test():
-    test_model_name = 'bert-base-multilingual-cased'
+    # test_model_name = 'bert-base-multilingual-cased'
+    test_model_name = "sentence-transformers/all-MiniLM-L6-v2"
     # test_model_name = 'bert-base-chinese'
     # test_model_name = 'bert-base-uncased'
 
@@ -53,10 +54,15 @@ def simple_test():
     tokenizer = BertTokenizer.from_pretrained(test_model_name)
     bert_model = BertModel.from_pretrained(test_model_name)      # 这地方好坑,用model path的话模型与源码不一定兼容
 
-    t1 = tokenizer.encode('希望')
-    t2 = tokenizer.encode('想要')
-    t3 = tokenizer.encode('程序员')
-    t4 = tokenizer.encode('工程师')
+    # t1 = tokenizer.encode('vaccines')
+    # t2 = tokenizer.encode("vaccine")
+    # t3 = tokenizer.encode('vaccination')
+    # t4 = tokenizer.encode('mainland')
+
+    t1 = tokenizer.encode('Nancy Pelosi’s visit to Taiwan is expected to cost tax payers over $90 million for security, allocation of US military presence, and more.')
+    t2 = tokenizer.encode("Nancy Pelosi is willing to risk starting a war with China so that she can make massive profits on her husband's insider trading deals on computer chips.#Pelosi #Taiwan.")
+    t3 = tokenizer.encode('What a great tournament! Incredible advert for womens football and sport in general. Inspirational stuff. Congrats @Lionesses')
+    t4 = tokenizer.encode('Football is a simple game. 22 women chase a ball for 90 minutes and, at the end, England actually win. Congratulations @lionesses. Fabulous.')
 
     input_1 = torch.tensor(t1).unsqueeze(0)
     input_2 = torch.tensor(t2).unsqueeze(0)

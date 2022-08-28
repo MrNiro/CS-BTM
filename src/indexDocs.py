@@ -26,6 +26,7 @@ class IndexDocs:
                 w = w.lower()
                 if w in sw_nltk:
                     continue
+
                 w = w.replace("!", "")
                 w = w.replace(",", "")
                 w = w.replace(".", "")
@@ -33,8 +34,14 @@ class IndexDocs:
                 w = w.replace("@", "")
                 w = w.replace("#", "")
                 w = w.replace(":", "")
+                w = w.replace("(", "")
+                w = w.replace(")", "")
+                w = w.replace("\'s", "")
                 w = w.replace("...", "")
-                if w == "":
+
+                if w in sw_nltk:
+                    continue
+                if w == "" or w == "-":
                     continue
 
                 temp_ws.append(w)

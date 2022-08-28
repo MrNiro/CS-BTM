@@ -31,7 +31,7 @@ class Model:
         self.indexToVector = None
         self.biterm_encoder = None
         self.sim_thresh = 0.9
-        # self.Sim = dict()
+        self.Sim = dict()
 
         # If true, the topic 0 is set to a background topic that equals to the empirical word distribution.
         # It can be used to filter out common words
@@ -77,23 +77,28 @@ class Model:
         self.indexToWord = sorted(index_docs.wordToIndex.keys(), key=lambda x: index_docs.wordToIndex[x])
         # topic_words_with_frequency = sorted(list(zip(indexToWord, self.pw_b)), key=lambda x: x[1])
 
-        self.biterm_encoder = BitermBert(model_name="bert-base-multilingual-cased")
-        print("Start Encoding texts...")
-        self.indexToVector = list(map(lambda x: self.biterm_encoder.encode(x), self.indexToWord))
-        print("Encoding Done!")
+        # self.biterm_encoder = BitermBert(model_name="bert-base-multilingual-cased")
+        self.biterm_encoder = BitermBert(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-        # for bi in self.bs:
-        #     self.Sim[bi.b_id] = [-1 for _ in range(len(self.bs))]
-        # print("Biterms similarity init Done!")
+        # 预先将所有单词encode，提高后续Biterm相似度计算的速度
+        # 但很容易造成内存不足，特别是使用CUDA的时候
+        print("Start Encoding texts...")
+        # self.indexToVector = list(map(lambda x: self.biterm_encoder.encode(x), self.indexToWord))
+        self.indexToVector = []
+        for i, each in enumerate(self.indexToWord):
+            print("\rEncoding %d / %d " % (i, len(index_docs.wordToIndex)), end="...")
+            self.indexToVector.append(self.biterm_encoder.encode(each))
+        print("Encoding Done!")
 
         topic_dict = {}
         topic_dict_index = {}
+        cur_id = 0
         for doc_idx, each in enumerate(index_docs.docIndex):
             pz_d = np.zeros(self.K)  # the probability proportion of the Doc in each Topic
 
             d = Doc(each)
             biterms = []
-            d.gen_biterms(biterms)
+            d.gen_biterms(biterms, cur_id)
             pb_d = self.compute_pb_d(biterms)
 
             for idx, bi in enumerate(biterms):
@@ -118,7 +123,7 @@ class Model:
                 topic_dict[k] = [sentence]
                 topic_dict_index[k] = [each]
 
-            print(pb_d)
+            # print(pb_d)
             print("Doc: %d Topic: %d\t %s\n" % (doc_idx, k, sentence))
 
         self.generate_topic_words()
@@ -143,12 +148,16 @@ class Model:
         for each in index_docs.docIndex:
             d = Doc(each)
             biterms = []
-            d.gen_biterms(biterms)
+            d.gen_biterms(biterms, len(self.bs))
             # statistic the empirical word distribution
             for i in range(d.size()):
                 w = d.get_w(i)
                 self.pw_b[w] += 1  # 统计词频
             for b in biterms:
+                # 此处直接添加当前句子产生的所有biterms
+                # 导致最终会出现大量的重复biterms，这样没有问题的吗？
+                # 噢没有问题！本来就应该遍历biterms的时候统计词频
+                # 但在计算biterm相似度的时候，目前已b_id构建字典，仍会有大量的重复计算
                 self.bs.append(b)  # self.bs中添加的是一个biterm类。类的内容是这段文本中所有可能的词的组合.
 
         # 做归一化处理,现在 pw_b中保存的是 词：词频率。
@@ -264,23 +273,29 @@ class Model:
     def compute_pb_d(self, biterms):
         bi_num = len(biterms)
         print(bi_num)
-        Sim = [[0.0 for _ in range(bi_num)] for _ in range(bi_num)]
-        # Sim = [[0 for _ in range(len(self.bs))] for _ in range(bi_num)]
 
         lambda_b = [0 for _ in range(bi_num)]
         for i, bi in enumerate(biterms):
             # 按照论文，此处应该只和当前doc中的biterms比较
-
+            bi_id = bi.b_id
+            if bi_id not in self.Sim:
+                self.Sim[bi_id] = {}
             for j, bi_2 in enumerate(biterms):
                 # lines below are for local biterms
                 if i == j:
                     continue
-                if j < i:
-                    similarity = Sim[j][i]
-                else:
+                bi_2_id = bi_2.b_id
+                if bi_2_id not in self.Sim[bi_id]:
                     similarity = self.cal_biterm_sim(bi, bi_2)
-                    Sim[i][j] = similarity
+                    self.Sim[bi_id][bi_2_id] = similarity
+                else:
+                    similarity = self.Sim[bi_id][bi_2_id]
 
+                # if j < i:
+                #     similarity = Sim[j][i]
+                # else:
+                #     similarity = self.cal_biterm_sim(bi, bi_2)
+                #     Sim[i][j] = similarity
                 # # lines below are for global biterms
                 # if bi.equalTo(bi_2):
                 #     continue
@@ -290,16 +305,18 @@ class Model:
                 #     similarity = self.cal_biterm_sim(bi, bi_2)
                 #     self.Sim[bi.b_id][j] = similarity
 
-                # print(similarity)
                 if similarity >= self.sim_thresh:
+                    # print("similar biterms: (%s, %s) - (%s, %s)" %
+                    #       (self.indexToWord[bi.wi], self.indexToWord[bi.wj],
+                    #        self.indexToWord[bi_2.wi], self.indexToWord[bi_2.wj]))
                     lambda_b[i] += 1
-        # print(Sim)
+
+        # print(lambda_b)
         sum_lambda_b = sum(lambda_b)
         pb_d = list(map(lambda x: (x + 1) / (sum_lambda_b + 1), lambda_b))
-        return pb_d
+        return self.normalize_ndarray(np.asarray(pb_d))
 
     def cal_biterm_sim(self, bi_1, bi_2):
-        # 此处仅提取到编号
         # w1_1 = self.indexToWord[bi_1.wi]
         # w1_2 = self.indexToWord[bi_1.wj]
         # w2_1 = self.indexToWord[bi_2.wi]
