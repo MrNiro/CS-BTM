@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import indexDocs
-import torch
+from scipy import spatial
 
 from BitermEncoder import BitermBert
 from doc import Doc
@@ -77,18 +77,13 @@ class Model:
         self.indexToWord = sorted(index_docs.wordToIndex.keys(), key=lambda x: index_docs.wordToIndex[x])
         # topic_words_with_frequency = sorted(list(zip(indexToWord, self.pw_b)), key=lambda x: x[1])
 
-        # self.biterm_encoder = BitermBert(model_name="bert-base-multilingual-cased")
-        self.biterm_encoder = BitermBert(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        self.load_index_to_vector("../../data/word_embeddings.txt")
 
-        # 预先将所有单词encode，提高后续Biterm相似度计算的速度
-        # 但很容易造成内存不足，特别是使用CUDA的时候
-        print("Start Encoding texts...")
-        # self.indexToVector = list(map(lambda x: self.biterm_encoder.encode(x), self.indexToWord))
-        self.indexToVector = []
-        for i, each in enumerate(self.indexToWord):
-            print("\rEncoding %d / %d " % (i, len(index_docs.wordToIndex)), end="...")
-            self.indexToVector.append(self.biterm_encoder.encode(each))
-        print("Encoding Done!")
+        # print("Start Encoding texts...")
+        # for i, each in enumerate(self.indexToWord):
+        #     print("\rEncoding %d / %d " % (i, len(index_docs.wordToIndex)), end="...")
+        #     self.indexToVector.append(self.biterm_encoder.encode(each))
+        # print("Encoding Done!")
 
         topic_dict = {}
         topic_dict_index = {}
@@ -204,6 +199,27 @@ class Model:
 
         return index_docs
 
+    def load_index_to_vector(self, word_embeddings_path):
+        embedding_file = open(word_embeddings_path)
+        embeddings_dict = {}
+        for line in embedding_file.readlines():
+            info = line.strip().split(" ")
+            word = info[0]
+            embeddings = list(map(lambda x: float(x), info[1:]))
+            embeddings = np.asarray(embeddings)
+            embeddings_dict[word] = embeddings
+        print("Embeddings loaded!")
+        embedding_file.close()
+
+        self.indexToVector = []
+        self.biterm_encoder = BitermBert(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        for i, each in enumerate(self.indexToWord):
+            if each in embeddings_dict:
+                self.indexToVector.append(embeddings_dict[each])
+            else:
+                self.indexToVector.append(self.biterm_encoder.encode(each))
+        print("Word index to Vector init done!")
+
     def generate_topic_words(self):
         for k in range(self.K):
             topic_words_index_with_frequency = sorted(list(zip(range(0, self.vocabulary_size), self.pw_z[k])),
@@ -272,7 +288,7 @@ class Model:
 
     def compute_pb_d(self, biterms):
         bi_num = len(biterms)
-        print(bi_num)
+        print("biterms num:", bi_num)
 
         lambda_b = [0 for _ in range(bi_num)]
         for i, bi in enumerate(biterms):
@@ -327,10 +343,14 @@ class Model:
         v2 = self.indexToVector[bi_1.wj]
         v3 = self.indexToVector[bi_2.wi]
         v4 = self.indexToVector[bi_2.wj]
-        similarity = float(torch.cosine_similarity(v1, v3) +
-                           torch.cosine_similarity(v1, v4) +
-                           torch.cosine_similarity(v2, v3) +
-                           torch.cosine_similarity(v2, v4)) / 4
+        similarity = (spatial.distance.cosine(v1, v3) +
+                      spatial.distance.cosine(v1, v4) +
+                      spatial.distance.cosine(v2, v3) +
+                      spatial.distance.cosine(v2, v4)) / 4
+        # similarity = float(torch.cosine_similarity(v1, v3) +
+        #                    torch.cosine_similarity(v1, v4) +
+        #                    torch.cosine_similarity(v2, v3) +
+        #                    torch.cosine_similarity(v2, v4)) / 4
 
         return similarity
 

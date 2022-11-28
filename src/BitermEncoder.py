@@ -13,8 +13,10 @@ class BitermBert:
 
     def encode(self, text):
         token = self.tokenizer.encode(text)
-        result = self.bert_model(torch.tensor(token).unsqueeze(0).to(device))
-        return result[1]    # size(1 * 768)
+        bert_input = torch.tensor(token).unsqueeze(0).to(device)
+        bert_output = self.bert_model(bert_input)
+        embeddings = bert_output[1].cpu().detach().numpy()[0]
+        return embeddings
 
     def cal_biterm_similarity(self, b1: tuple, b2: tuple):
         w1, w2 = b1[0], b1[1]

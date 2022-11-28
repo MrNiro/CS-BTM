@@ -8,10 +8,10 @@ def train_CS_BTM():
     print("===== Run BTM, Topic Number=" + str(K) + ", alpha=" + str(alpha) + ", beta=" +
           str(beta) + ", n_iter=" + str(n_iter) + ", save_step=" + str(save_step) + "=====")
 
-    clock_start = time.clock()
+    clock_start = time.process_time()
     model = Model(K, alpha, beta, n_iter, save_step)
     model.train(doc_pt, output_dir)
-    clock_end = time.clock()
+    clock_end = time.process_time()
 
     print("procedure time : %f seconds" % (clock_end - clock_start))
 
@@ -31,14 +31,14 @@ def display_biterm(bs, vocal):
 
 
 if __name__ == "__main__":
-    K = 3
-    alpha = 50 / K
+    K = 7
+    alpha = 0.1
     beta = 0.01
-    n_iter = 20
-    save_step = 1000
+    n_iter = 30
+    save_step = 10
 
     output_dir = "../output/"
-    doc_pt = "../../data/test_2.dat"                   # input documents
+    doc_pt = "../../data/test_tweet_1w.dat"                   # input documents
     model_dir = "../output/model/"                            # dictionary to save model
     vocabulary_path = output_dir + "vocabulary.txt"     # generated vocabulary
 
